@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Minikube IBM MQ Native HA POC — Architecture Diagram</title>
+<style>
+  :root {
+    --bg: #0b1220;        /* dark blue background */
+    --panel: #101a2e;     /* panels */
+    --stroke: #5a6b8a;    /* line color */
+    --accent: #67e8f9;    /* cyan */
+    --accent2: #a78bfa;   /* purple */
+    --ok: #34d399;        /* green */
+    --warn: #fbbf24;      /* amber */
+    --text: #e5e7eb;      /* light text */
+    --muted: #9ca3af;
+  }
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    margin: 0;
+  }
+  .wrap {
+    max-width: 1200px;
+    margin: 24px auto;
+    padding: 16px;
+  }
+  h1 { font-size: 20px; margin: 0 0 12px; font-weight: 700; }
+  .subtitle { color: var(--muted); margin-bottom: 12px; }
+  .legend {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 8px 16px;
+    background: var(--panel);
+    border: 1px solid #223055;
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin-bottom: 14px;
+  }
+  .legend div { font-size: 12px; line-height: 1.4; }
+  .chip { display:inline-block; padding:2px 8px; border-radius:999px; font-weight:600; font-size:11px; border:1px solid #2a3c66; }
+  .c-active { background: rgba(52,211,153,.12); color: var(--ok); }
+  .c-standby { background: rgba(167,139,250,.12); color: var(--accent2); }
+  .c-storage { background: rgba(103,232,249,.12); color: var(--accent); }
+  .c-ingress { background: rgba(251,191,36,.12); color: var(--warn); }
+
+  /* SVG sizing */
+  .canvas {
+    background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,0));
+    border: 1px solid #223055;
+    border-radius: 16px;
+    overflow: hidden;
+  }
+  svg { width: 100%; height: auto; display: block; }
+  .note { font-size: 11px; fill: #cbd5e1; }
+  .label { font-size: 12px; fill: #e5e7eb; font-weight: 600; }
+  .small { font-size: 11px; fill: #9ca3af; }
+  .gbox { fill: #0f1a30; stroke: #304064; stroke-width: 1; rx: 10; }
+  .gbox-soft { fill: #0c1527; stroke: #2a3b61; stroke-width: 1; rx: 10; }
+  .service { fill: #0e1a2d; stroke: #3a4f78; rx: 8; }
+  .port { fill: #111c33; stroke: #425a86; rx: 6; }
+  .pv { fill: #0a2430; stroke: #2b5968; rx: 8; }
+  .arrow { stroke: var(--stroke); stroke-width: 1.5; marker-end: url(#arrowhead); fill: none; }
+  .arrow-bold { stroke: var(--accent); stroke-width: 2; marker-end: url(#arrowheadCyan); fill: none; }
+  .arrow-failover { stroke: var(--accent2); stroke-dasharray: 4 3; stroke-width: 2; marker-end: url(#arrowheadPurp); fill: none; }
+  .pod { fill: #0f1a30; stroke: #3a4f78; rx: 6; }
+  .pod-active { stroke: #1e9e78; }
+  .pod-standby { stroke: #7d68e9; }
+  .ing { fill: #2b1f07; stroke: #6b4e0e; rx: 8; }
+  .lb { fill: #16213a; stroke: #365b94; rx: 8; }
+  .k8s { fill: #0b1934; stroke: #1e3a8a; rx: 12; }
+  .host {
+    fill: #0a1020;
+    stroke: #1f2a44;
+    rx: 16;
+  }
+  .badge { font-size:10px; fill:#93c5fd; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>IBM MQ Native HA on Minikube (POC)
+      <span class="chip c-ingress" title="Simulated LB via Ingress/NodePort">LB/Ingress</span>
+      <span class="chip c-storage" title="HostPath simulating EBS">Storage</span>
+      <span class="chip c-active" title="Active Queue Manager">Active</span>
+      <span class="chip c-standby" title="Standby Queue Managers">Standby</span>
+    </h1>
+    <div class="subtitle">Mirrors the AWS Partner Solution topology using a single-node Minikube cluster with IBM MQ Advanced for Developers (Native HA, 1 active + 2 standby, persistent data, console access).</div>
+
+    <div class="legend">
+      <div><strong>Client access</strong>: <code>mq.local:1414</code> (apps/CLI) and <code>mq-console.local:9443</code> (web console). Hosts map to Minikube IP.</div>
+      <div><strong>Networking</strong>: NGINX Ingress simulates a Load Balancer; NodePort/"minikube service" URL also usable.</div>
+      <div><strong>Persistence</strong>: StorageClass <code>mq-storage</code> → hostPath PV/PVC <code>mq-data</code> (EBS analogue).</div>
+      <div><strong>MQ HA set</strong>: <span class="chip c-active">Active</span> QM + two <span class="chip c-standby">Standby</span> QMs; automatic failover & data reuse.</div>
+    </div>
+
+    <div class="canvas">
+      <svg viewBox="0 0 1200 820" role="img" aria-label="Architecture diagram: IBM MQ Native HA on Minikube">
+        <defs>
+          <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#5a6b8a" />
+          </marker>
+          <marker id="arrowheadCyan" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+            <polygon points="0 0, 10 4, 0 8" fill="#67e8f9" />
+          </marker>
+          <marker id="arrowheadPurp" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+            <polygon points="0 0, 10 4, 0 8" fill="#a78bfa" />
+          </marker>
+        </defs>
+
+        <!-- Client side -->
+        <rect class="gbox-soft" x="30" y="60" width="360" height="200" />
+        <text class="label" x="50" y="88">Client / Test Tools</text>
+        <text class="small" x="50" y="110">IBM MQ clients (amqsputc / amqsget) or apps (e.g., pymqi)</text>
+        <rect class="service" x="50" y="130" width="320" height="46" rx="8" />
+        <text class="label" x="66" y="158">/etc/hosts → <tspan fill="#93c5fd">mq.local</tspan> (1414), <tspan fill="#93c5fd">mq-console.local</tspan> (9443)</text>
+
+        <!-- Ingress / LB -->
+        <rect class="ing" x="440" y="80" width="300" height="160" />
+        <text class="label" x="456" y="108">NGINX Ingress (simulated LB)</text>
+        <rect class="port" x="460" y="122" width="260" height="40" />
+        <text class="small" x="474" y="147">Rule: mq.local → svc/mq-quickstart :1414 (SVRCONN)</text>
+        <rect class="port" x="460" y="168" width="260" height="40" />
+        <text class="small" x="474" y="193">Rule: mq-console.local → svc/mq-quickstart-web :9443</text>
+
+        <!-- Arrows from client to ingress -->
+        <path class="arrow-bold" d="M 390 150 C 420 150, 430 150, 440 150" />
+        <path class="arrow-bold" d="M 390 190 C 420 190, 430 190, 440 190" />
+
+        <!-- Minikube host -->
+        <rect class="host" x="60" y="300" width="1080" height="480" />
+        <text class="label" x="80" y="326">Minikube Node (Docker driver) — Kubernetes v1.28.x</text>
+
+        <!-- K8s control plane logical box -->
+        <rect class="k8s" x="80" y="340" width="1040" height="420" />
+        <text class="label" x="100" y="366">Namespace: <tspan fill="#93c5fd">mq</tspan></text>
+
+        <!-- Services inside cluster -->
+        <rect class="lb" x="860" y="380" width="240" height="90" />
+        <text class="label" x="874" y="406">Service: mq-quickstart (LoadBalancer*)</text>
+        <text class="small" x="874" y="428">Ports: 1414 (QM), 9443 (console)</text>
+        <text class="small" x="874" y="446">*Minikube: NodePort / minikube service URL</text>
+
+        <!-- Arrow ingress to service -->
+        <path class="arrow" d="M 590 240 C 700 260, 880 300, 940 380" />
+
+        <!-- MQ HA set -->
+        <rect class="gbox" x="120" y="400" width="700" height="260" />
+        <text class="label" x="140" y="426">IBM MQ Native HA (Queue Manager: QUICKSTART, replicas=3)</text>
+
+        <!-- Active pod -->
+        <rect class="pod pod-active" x="150" y="450" width="200" height="90" />
+        <text class="label" x="162" y="476">mq-quickstart-0</text>
+        <text class="small" x="162" y="496">Active QM • Port 1414</text>
+        <text class="badge" x="162" y="514">Channel: DEV.APP.SVRCONN</text>
+
+        <!-- Standby pods -->
+        <rect class="pod pod-standby" x="380" y="450" width="200" height="90" />
+        <text class="label" x="392" y="476">mq-quickstart-1</text>
+        <text class="small" x="392" y="496">Standby</text>
+
+        <rect class="pod pod-standby" x="610" y="450" width="200" height="90" />
+        <text class="label" x="622" y="476">mq-quickstart-2</text>
+        <text class="small" x="622" y="496">Standby</text>
+
+        <!-- Arrows service to active -->
+        <path class="arrow-bold" d="M 860 420 C 780 420, 680 430, 350 480" />
+
+        <!-- Failover dashed arrows -->
+        <path class="arrow-failover" d="M 480 448 C 460 430, 360 430, 250 448" />
+        <text class="small" x="330" y="438">Automatic failover</text>
+        <path class="arrow-failover" d="M 720 448 C 700 428, 520 428, 250 448" />
+
+        <!-- Storage layer -->
+        <rect class="gbox-soft" x="140" y="560" width="660" height="120" />
+        <text class="label" x="160" y="586">Persistence</text>
+
+        <rect class="pv" x="160" y="600" width="280" height="62" />
+        <text class="label" x="174" y="626">PVC: mq-data (2Gi, RWO)</text>
+        <text class="small" x="174" y="644">StorageClass: mq-storage → hostPath (EBS analogue)</text>
+
+        <rect class="pv" x="460" y="600" width="320" height="62" />
+        <text class="label" x="474" y="626">SC: k8s.io/minikube-hostpath</text>
+        <text class="small" x="474" y="644">ReclaimPolicy: Retain • volumeBinding: Immediate</text>
+
+        <!-- Arrows pods to storage -->
+        <path class="arrow" d="M 250 540 C 250 560, 260 580, 300 600" />
+        <path class="arrow" d="M 480 540 C 480 560, 470 580, 340 600" />
+        <path class="arrow" d="M 710 540 C 710 560, 690 580, 600 600" />
+
+        <!-- Web console access line -->
+        <path class="arrow" d="M 590 200 C 700 220, 980 260, 980 380" />
+        <text class="note" x="718" y="224">Console → svc/mq-quickstart-web :9443</text>
+
+        <!-- Footer notes -->
+        <text class="note" x="80" y="782">Notes: TLS enabled for web console by default in values; enable channel TLS for production. Demonstrate failover by deleting active pod; messages persist via PVC. Ports shown: 1414 (QM), 9443 (console).</text>
+      </svg>
+    </div>
+  </div>
+</body>
+</html>
