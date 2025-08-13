@@ -1,4 +1,4 @@
-**“field-grade” HA proof-of-concept for IBM MQ** 
+**HA Proof-of-Concept for IBM MQ** 
 
 * **Track A (recommended POC): Multi-Instance Queue Manager (MIQM)** on two lightweight Rocky VMs sharing an NFS volume (fast to set up; excellent learning value).
 * **Track B (stretch goal): Native HA in Kubernetes** with a 3-node local cluster (closer to modern prod patterns; heavier lift).
